@@ -1,15 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_custom_tree_view/src/models/tree_node.dart';
-import 'package:flutter_custom_tree_view/src/models/tree_view_search_ui.dart';
+import 'package:flutter_custom_tree_view/src/controller/flutter_custom_tree_view_controller.dart';
+
+import 'models/tree_node.dart';
+import 'models/tree_view_search_ui.dart';
 
 class TreeViewCustom extends StatefulWidget {
   final TreeNode root;
   final Function(List<String> recordParentKey, TreeNode node) onLastItemClick;
   final Function(TreeNode node) onPressToLoadChildren;
   final bool showSearch;
+  final bool showRootTitle;
   final TreeViewSearchUi? searchFieldUi;
+  final TreeViewController? controller;
+  final Widget? divider;
+
   const TreeViewCustom({
     super.key,
     required this.root,
@@ -17,6 +23,9 @@ class TreeViewCustom extends StatefulWidget {
     required this.onPressToLoadChildren,
     this.showSearch = false,
     this.searchFieldUi,
+    this.controller,
+    this.divider,
+    this.showRootTitle = true,
   });
 
   @override
@@ -44,12 +53,14 @@ class _TreeViewCustomState extends State<TreeViewCustom> {
 
   @override
   void dispose() {
+    widget.controller?.dispose();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   void _onSearchChanged() {
+    widget.controller?.collapseAllNodes();
     _filterTree(_searchController.text);
   }
 
@@ -67,7 +78,6 @@ class _TreeViewCustomState extends State<TreeViewCustom> {
   }
 
   TreeNode _filterNodes(TreeNode node, String query) {
-    // Filter children recursively
     final List<TreeNode> filteredChildren = [];
     for (final child in node.preLoadedChildren) {
       final filteredChild = _filterNodes(child, query);
@@ -78,7 +88,6 @@ class _TreeViewCustomState extends State<TreeViewCustom> {
       }
     }
 
-    // Return new node with filtered children
     return TreeNode(
       title: node.title,
       value: node.value,
@@ -90,8 +99,12 @@ class _TreeViewCustomState extends State<TreeViewCustom> {
     )..completer = node.completer;
   }
 
-  Widget _buildNode(TreeNode node, {bool initiallyExpanded = false, bool isRoot = false, required BuildContext context}) {
-    if (isRoot || node.isLastItem) {
+  Widget _buildNode(TreeNode node, {bool initiallyExpanded = false, bool isRoot = false, required BuildContext context, bool isLastChild = false}) {
+    final controller = ExpansionTileController();
+    widget.controller?.registerController(node, controller);
+    final showDivider = widget.divider != null && !isLastChild;
+
+    if (node.isLastItem) {
       return Column(
         children: [
           InkWell(
@@ -131,56 +144,136 @@ class _TreeViewCustomState extends State<TreeViewCustom> {
               ),
             ),
           ),
-          if (isRoot) ...node.preLoadedChildren.map((child) => _buildNode(child, context: context)),
+          if (showDivider) widget.divider!,
+        ],
+      );
+    }
+    if (isRoot) {
+      widget.controller?.unregisterController(node.key);
+      return Column(
+        children: [
+          widget.showRootTitle
+              ? InkWell(
+                  onTap: node.isLastItem
+                      ? () {
+                          _handleLastItemClick(node);
+                        }
+                      : null,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: IgnorePointer(
+                      child: ExpansionTile(
+                        backgroundColor: node.customUi?.backgroundColor,
+                        childrenPadding: node.customUi?.childrenPadding,
+                        clipBehavior: node.customUi?.clipBehavior,
+                        collapsedBackgroundColor: node.customUi?.collapsedBackgroundColor,
+                        collapsedIconColor: node.customUi?.collapsedIconColor,
+                        collapsedShape: node.customUi?.collapsedShape,
+                        collapsedTextColor: node.customUi?.collapsedTextColor,
+                        initiallyExpanded: true,
+                        dense: node.customUi?.dense,
+                        expandedAlignment: node.customUi?.expandedAlignment,
+                        expansionAnimationStyle: node.customUi?.expansionAnimationStyle,
+                        iconColor: node.customUi?.iconColor,
+                        expandedCrossAxisAlignment: node.customUi?.expandedCrossAxisAlignment,
+                        leading: node.customUi?.leading,
+                        minTileHeight: node.customUi?.minTileHeight,
+                        shape: node.customUi?.shape,
+                        showTrailingIcon: node.customUi?.showTrailingIcon ?? true,
+                        subtitle: node.customUi?.subtitle,
+                        textColor: node.customUi?.textColor,
+                        tilePadding: node.customUi?.childrenPadding,
+                        trailing: node.customUi?.trailing ?? const SizedBox.shrink(),
+                        visualDensity: node.customUi?.visualDensity,
+                        title: node.customUi?.title ?? Text(node.title),
+                      ),
+                    ),
+                  ),
+                )
+              : SizedBox(),
+          if (showDivider && widget.showRootTitle) widget.divider!,
+          ...node.preLoadedChildren.asMap().entries.map((entry) {
+            final index = entry.key;
+            final child = entry.value;
+            return _buildNode(
+              child,
+              context: context,
+              isLastChild: index == node.preLoadedChildren.length - 1,
+            );
+          }),
         ],
       );
     }
 
-    return ExpansionTile(
-      backgroundColor: node.customUi?.backgroundColor,
-      childrenPadding: node.customUi?.childrenPadding,
-      clipBehavior: node.customUi?.clipBehavior,
-      collapsedBackgroundColor: node.customUi?.collapsedBackgroundColor,
-      collapsedIconColor: node.customUi?.collapsedIconColor,
-      collapsedShape: node.customUi?.collapsedShape,
-      collapsedTextColor: node.customUi?.collapsedTextColor,
-      initiallyExpanded: initiallyExpanded,
-      dense: node.customUi?.dense,
-      expandedAlignment: node.customUi?.expandedAlignment,
-      expansionAnimationStyle: node.customUi?.expansionAnimationStyle,
-      iconColor: node.customUi?.iconColor,
-      expandedCrossAxisAlignment: node.customUi?.expandedCrossAxisAlignment,
-      leading: node.customUi?.leading,
-      minTileHeight: node.customUi?.minTileHeight,
-      shape: node.customUi?.shape,
-      showTrailingIcon: node.customUi?.showTrailingIcon ?? true,
-      subtitle: node.customUi?.subtitle,
-      textColor: node.customUi?.textColor,
-      tilePadding: node.customUi?.childrenPadding,
-      trailing: node.customUi?.trailing,
-      visualDensity: node.customUi?.visualDensity,
-      title: node.customUi?.title ?? Text(node.title),
-      onExpansionChanged: (expanded) {
-        if (expanded && !node.completer.isCompleted && node.preLoadedChildren.isEmpty) {
-          widget.onPressToLoadChildren(node);
-        }
-      },
-      children: node.preLoadedChildren.isNotEmpty
-          ? node.preLoadedChildren.map((child) => _buildNode(child, context: context)).toList()
-          : [
-              FutureBuilder<List<TreeNode>>(
-                future: node.completer.future,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const ListTile(title: Text("No data available."));
-                  }
-                  return Column(children: snapshot.data!.map((child) => _buildNode(child, context: context)).toList());
-                },
-              ),
-            ],
+    return Column(
+      children: [
+        ExpansionTile(
+          backgroundColor: node.customUi?.backgroundColor,
+          childrenPadding: node.customUi?.childrenPadding,
+          clipBehavior: node.customUi?.clipBehavior,
+          collapsedBackgroundColor: node.customUi?.collapsedBackgroundColor,
+          collapsedIconColor: node.customUi?.collapsedIconColor,
+          collapsedShape: node.customUi?.collapsedShape,
+          collapsedTextColor: node.customUi?.collapsedTextColor,
+          initiallyExpanded: initiallyExpanded,
+          dense: node.customUi?.dense,
+          expandedAlignment: node.customUi?.expandedAlignment,
+          expansionAnimationStyle: node.customUi?.expansionAnimationStyle,
+          iconColor: node.customUi?.iconColor,
+          expandedCrossAxisAlignment: node.customUi?.expandedCrossAxisAlignment,
+          leading: node.customUi?.leading,
+          minTileHeight: node.customUi?.minTileHeight,
+          shape: widget.divider != null ? Border() : node.customUi?.shape,
+          showTrailingIcon: node.customUi?.showTrailingIcon ?? true,
+          subtitle: node.customUi?.subtitle,
+          textColor: node.customUi?.textColor,
+          tilePadding: node.customUi?.childrenPadding,
+          trailing: node.customUi?.trailing,
+          visualDensity: node.customUi?.visualDensity,
+          title: node.customUi?.title ?? Text(node.title),
+          controller: controller,
+          onExpansionChanged: (expanded) {
+            if (expanded && !node.completer.isCompleted && node.preLoadedChildren.isEmpty) {
+              widget.onPressToLoadChildren(node);
+            }
+          },
+          children: node.preLoadedChildren.isNotEmpty
+              ? node.preLoadedChildren.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final child = entry.value;
+                  return _buildNode(
+                    child,
+                    context: context,
+                    isLastChild: index == node.preLoadedChildren.length - 1,
+                  );
+                }).toList()
+              : [
+                  FutureBuilder<List<TreeNode>>(
+                    future: node.completer.future,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const ListTile(title: Text("No data available."));
+                      }
+                      return Column(
+                        children: snapshot.data!.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final child = entry.value;
+                          return _buildNode(
+                            child,
+                            context: context,
+                            isLastChild: index == snapshot.data!.length - 1,
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ],
+        ),
+        if (showDivider) widget.divider!
+      ],
     );
   }
 

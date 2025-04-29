@@ -24,7 +24,6 @@ class TreeNode {
     Completer<List<TreeNode>>? completer,
   })  : _preLoadedChildren = List.from(preLoadedChildren),
         completer = completer ?? Completer<List<TreeNode>>() {
-    // Add listener to move data when completer completes
     if (!this.completer.isCompleted) {
       this.completer.future.then((children) {
         _preLoadedChildren = List.from(children);

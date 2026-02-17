@@ -166,9 +166,9 @@ class _LazyTreeViewExampleState extends State<LazyTreeViewExample> {
               root: rootNode,
               searchFieldUi:
                   TreeViewSearchUi(hintText: 'Find nodes...', prefixIcon: Icon(Icons.search_off), fillColor: Colors.grey[200], filled: true),
-              onLastItemClick: (parentKeys, node) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text('Selected employee: ${node.title}\nPath: ${parentKeys.join(' > ')}')));
+              onLastItemClick: (roadmap, node) {
+                String path = roadmap.map((n) => n.title).join(' > ');
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Selected employee: ${node.title}\nPath: $path')));
               },
               onPressToLoadChildren: (node) async {
                 if (!node.completer.isCompleted) {

@@ -8,7 +8,7 @@ import 'models/tree_view_search_ui.dart';
 
 class TreeViewCustom extends StatefulWidget {
   final TreeNode root;
-  final Function(List<String> recordParentKey, TreeNode node) onLastItemClick;
+  final Function(List<TreeNode> roadmap, TreeNode node) onLastItemClick;
   final Function(TreeNode node) onPressToLoadChildren;
   final bool showSearch;
   final bool showRootTitle;
@@ -100,7 +100,7 @@ class _TreeViewCustomState extends State<TreeViewCustom> {
   }
 
   Widget _buildNode(TreeNode node, {bool initiallyExpanded = false, bool isRoot = false, required BuildContext context, bool isLastChild = false}) {
-    final controller = ExpansionTileController();
+    final controller = ExpansibleController();
     widget.controller?.registerController(node, controller);
     final showDivider = widget.divider != null && !isLastChild;
 
@@ -278,18 +278,18 @@ class _TreeViewCustomState extends State<TreeViewCustom> {
   }
 
   void _handleLastItemClick(TreeNode node) async {
-    List<String> parentKeys = await _getParentKeys(widget.root, node);
-    widget.onLastItemClick(parentKeys, node);
+    List<TreeNode> roadmap = await _getRoadmap(widget.root, node);
+    widget.onLastItemClick(roadmap, node);
   }
 
-  Future<List<String>> _getParentKeys(TreeNode root, TreeNode targetNode) async {
-    List<String> parentKeys = [];
-    await _findPath(root, targetNode, parentKeys);
-    return parentKeys;
+  Future<List<TreeNode>> _getRoadmap(TreeNode root, TreeNode targetNode) async {
+    List<TreeNode> roadmap = [];
+    await _findPath(root, targetNode, roadmap);
+    return roadmap;
   }
 
-  Future<bool> _findPath(TreeNode currentNode, TreeNode targetNode, List<String> path) async {
-    path.add(currentNode.key);
+  Future<bool> _findPath(TreeNode currentNode, TreeNode targetNode, List<TreeNode> path) async {
+    path.add(currentNode);
 
     if (currentNode == targetNode) {
       return true;
